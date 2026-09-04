@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volcano Sky Tour — fly the world's active volcanoes in 3D</title>
+<link rel="stylesheet" href="https://js.arcgis.com/4.34/esri/themes/dark/main.css">
+<style>
+  :root{
+    --bg:#0b0f16; --panel:rgba(17,22,32,.92); --panel2:#1b2230; --ink:#e9edf4;
+    --muted:#98a4b8; --line:#2d3950; --accent:#ff7a3d; --accent2:#5aa9ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{font:13px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  #view{position:absolute;inset:0}
+  .esri-ui-top-left{margin-top:0}
+  a{color:var(--accent2)}
+  button{font:inherit}
+
+  /* ---- startup loader ---- */
+  #loader{position:absolute;inset:0;z-index:50;background:radial-gradient(ellipse at 40% 30%,#1c2637,#0b0f16 70%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .6s}
+  #loader.hide{opacity:0;pointer-events:none}
+  #loader h1{margin:0;font-size:28px;letter-spacing:.5px;font-weight:700}
+  #loader .cone{width:0;height:0;border-left:42px solid transparent;border-right:42px solid transparent;
+    border-bottom:64px solid #6b3a2a;position:relative;filter:drop-shadow(0 0 18px rgba(255,122,61,.55))}
+  #loader .cone::after{content:"";position:absolute;left:-10px;top:-6px;width:20px;height:12px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 22px 8px rgba(255,122,61,.5);animation:glow 1.4s ease-in-out infinite alternate}
+  @keyframes glow{from{transform:scaleX(.8)}to{transform:scaleX(1.25)}}
+  #loader p{color:var(--muted);margin:0}
+  #loader .bar{width:220px;height:4px;background:#222b3b;border-radius:2px;overflow:hidden}
+  #loader .bar i{display:block;height:100%;width:8%;background:var(--accent);transition:width .4s}
+
+  /* ---- header ---- */
+  header{position:absolute;left:0;right:0;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+    padding:8px 14px;background:linear-gradient(rgba(8,11,17,.92),rgba(8,11,17,.6));pointer-events:none}
+  header>*{pointer-events:auto}
+  header h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.3px}
+  header h1 span{color:var(--accent)}
+  header .sub{color:var(--muted);font-size:11.5px}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tabs button,.tb{background:var(--panel2);color:var(--muted);border:1px solid var(--line);
+    padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600}
+  .tabs button.active{background:var(--accent);color:#1a0d06;border-color:var(--accent)}
+  .tb:hover,.tabs button:hover{border-color:var(--accent2)}
+
+  /* ---- side panel ---- */
+  #side{position:absolute;left:12px;top:56px;bottom:12px;width:340px;z-index:15;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:14px;overflow-y:auto;backdrop-filter:blur(4px)}
+  #side.collapsed{display:none}
+  #side h2{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:16px 0 8px;font-weight:700}
+  #side h2:first-child{margin-top:0}
+  .tour{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:rgba(255,255,255,.02)}
+  .tour:hover{border-color:var(--accent2)}
+  .tour.on{border-color:var(--accent);background:rgba(255,122,61,.08)}
+  .tour b{font-size:13.5px}
+  .tour p{margin:4px 0 0;color:var(--muted);font-size:11.5px}
+  .stops{list-style:none;margin:6px 0 0;padding:0}
+  .stops li{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:12.5px}
+  .stops li:hover{background:rgba(255,255,255,.05)}
+  .stops li.on{background:rgba(90,169,255,.15)}
+  .stops li .idx{width:18px;height:18px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:10.5px;color:var(--muted);flex:0 0 auto}
+  .sw{width:10px;height:10px;border-radius:50%;display:inline-block;flex:0 0 auto;border:1px solid rgba(0,0,0,.5)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px}
+  .btn:hover{border-color:var(--accent2)}
+  .btn.primary{background:var(--accent);color:#1a0d06;border-color:var(--accent);font-weight:700}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:7px 9px;font-size:12.5px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{padding:4px 9px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer;font-size:11.5px;user-select:none;display:flex;gap:6px;align-items:center}
+  .chip.on{color:#fff;border-color:transparent}
+  .list{max-height:46vh;overflow-y:auto}
+  .list div{padding:5px 8px;border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center;font-size:12.5px}
+  .list div:hover{background:rgba(255,255,255,.05)}
+  .list small{color:var(--muted);margin-left:auto;white-space:nowrap}
+  .note{color:var(--muted);font-size:11.5px;line-height:1.5}
+  kbd{background:#0c1018;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 6px;font:11px ui-monospace,Consolas,monospace;color:var(--ink)}
+  .keys{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;align-items:center}
+  .stat{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--line);font-size:12px}
+  .stat span:first-child{display:flex;gap:7px;align-items:center}
+  label.ck{display:flex;gap:8px;align-items:center;font-size:12.5px;cursor:pointer;margin:6px 0}
+
+  /* ---- info card ---- */
+  #card{position:absolute;right:12px;bottom:12px;width:360px;max-height:calc(100vh - 140px);z-index:15;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;backdrop-filter:blur(4px);display:none;flex-direction:column}
+  #card.show{display:flex}
+  #card .photo{position:relative;background:#000;max-height:190px;overflow:hidden}
+  #card .photo img{width:100%;display:block;object-fit:cover;max-height:190px}
+  #card .photo .cap{position:absolute;left:0;right:0;bottom:0;padding:18px 10px 6px;font-size:10.5px;color:#ddd;
+    background:linear-gradient(transparent,rgba(0,0,0,.85))}
+  #card .body{padding:12px 14px;overflow-y:auto}
+  #card h3{margin:0;font-size:17px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  #card .meta{color:var(--muted);font-size:11.5px;margin:2px 0 8px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;color:#fff;font-size:11px;font-weight:700;letter-spacing:.2px}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:8px 0}
+  .facts div{background:rgba(255,255,255,.04);border-radius:6px;padding:6px 8px}
+  .facts small{display:block;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px}
+  .facts b{font-size:13.5px;font-variant-numeric:tabular-nums}
+  .teach{border-left:3px solid var(--accent);padding:6px 10px;margin:8px 0;background:rgba(255,122,61,.08);font-size:12.5px;border-radius:0 6px 6px 0}
+  details summary{cursor:pointer;color:var(--muted);font-size:12px}
+  details .sum{max-height:160px;overflow:auto;font-size:12px;color:#cfd6e2;margin-top:6px}
+  #card .close{position:absolute;right:8px;top:8px;background:rgba(0,0,0,.55);border:0;color:#fff;border-radius:50%;width:26px;height:26px;cursor:pointer;z-index:2}
+  canvas.spark{width:100%;height:46px;display:block;margin-top:6px}
+
+  /* ---- transport bar (tour playback) ---- */
+  #transport{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:16;display:none;gap:6px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:30px;padding:6px 10px;backdrop-filter:blur(4px)}
+  #transport.show{display:flex}
+  #transport button{background:transparent;border:0;color:var(--ink);font-size:16px;width:34px;height:34px;border-radius:50%;cursor:pointer}
+  #transport button:hover{background:rgba(255,255,255,.08)}
+  #transport .ttl{font-size:12px;color:var(--muted);margin:0 6px;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+  #transport .prog{width:120px;height:3px;background:#2a3446;border-radius:2px;overflow:hidden}
+  #transport .prog i{display:block;height:100%;background:var(--accent);width:0}
+
+  /* ---- flight HUD ---- */
+  #hud{position:absolute;left:50%;top:60px;transform:translateX(-50%);z-index:16;display:none;gap:18px;
+    background:rgba(8,11,17,.7);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font:12px ui-monospace,Consolas,monospace}
+  #hud.show{display:flex}
+  #hud b{color:var(--accent);font-variant-numeric:tabular-nums}
+  #hud span small{color:var(--muted)}
+  #crosshair{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;z-index:14;display:none;pointer-events:none;
+    border:1.5px solid rgba(255,255,255,.55);border-radius:50%}
+  #crosshair.show{display:block}
+  #toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:30;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:8px 14px;font-size:12.5px;opacity:0;transition:opacity .3s;pointer-events:none}
+  #toast.show{opacity:1}
+
+  /* ---- legend ---- */
+  #legend{position:absolute;right:12px;top:56px;z-index:15;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11.5px;min-width:200px}
+  #legend h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  #legend .stat{border:0;padding:2px 0}
+  @media (max-width:900px){
+    #side{width:min(340px,calc(100vw - 24px))}
+    #card{width:min(360px,calc(100vw - 24px))}
+    #legend{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="cone"></div>
+  <h1>Volcano Sky Tour</h1>
+  <p id="loadmsg">Warming up the magma chamber…</p>
+  <div class="bar"><i id="loadbar"></i></div>
+</div>
+
+<div id="view"></div>
+<div id="crosshair"></div>
+
+<header>
+  <h1><span>▲</span> Volcano Sky Tour</h1>
+  <span class="sub" id="hsub">Fly the world's 1,215 Holocene volcanoes in 3D</span>
+  <nav class="tabs">
+    <button data-tab="tours" class="active">Tours</button>
+    <button data-tab="explore">Explore</button>
+    <button data-tab="fly">Fly</button>
+    <button data-tab="learn">Learn</button>
+    <button id="scopeBtn" class="tb" title="Switch between New Zealand only and the whole world">🌏 Whole world</button>
+    <button id="togglePanel" class="tb" title="Hide / show panel">☰</button>
+  </nav>
+</header>
+
+<aside id="side"></aside>
+
+<div id="legend"></div>
+
+<div id="hud">
+  <span><small>SPEED</small> <b id="hudSpd">0</b> km/h</span>
+  <span><small>ALT</small> <b id="hudAlt">0</b> m</span>
+  <span><small>AGL</small> <b id="hudAgl">0</b> m</span>
+  <span><small>HDG</small> <b id="hudHdg">000</b>°</span>
+  <span><small>NEAREST</small> <b id="hudNear">—</b></span>
+</div>
+
+<div id="card">
+  <button class="close" id="cardClose" title="Close">✕</button>
+  <div class="photo" id="cardPhoto"></div>
+  <div class="body" id="cardBody"></div>
+</div>
+
+<div id="transport">
+  <button id="tPrev" title="Previous stop">⏮</button>
+  <button id="tPlay" title="Play / pause">⏸</button>
+  <button id="tNext" title="Next stop">⏭</button>
+  <span class="ttl" id="tTitle"></span>
+  <span class="prog"><i id="tProg"></i></span>
+  <button id="tStop" title="End tour">✕</button>
+</div>
+<div id="toast"></div>
+
+<script src="data/volcanoes.js"></script>
+<script src="tours.js"></script>
+<script src="https://js.arcgis.com/4.34/"></script>
+<script>
+"use strict";
+// =====================================================================
+//  Data + terminology (identical to the paper figures / BK webapp)
+// =====================================================================
+const D = window.VOLC, META = D.meta, V = D.volcanoes, HIST = D.eruptions;
+const REF = META.ref_year, TH = META.thresholds;
+const BYN = Object.fromEntries(V.map(v => [v.n, v]));
+// Starting scope: the app boots showing only this country; "Whole world" opens everything up.
+const FOCUS = {country:"New Zealand", label:"Aotearoa New Zealand",
+  camera:{position:{longitude:176.5, latitude:-46.5, z:1_250_000, spatialReference:{wkid:4326}}, heading:350, tilt:38}};
+const VF = V.filter(v => v.cty === FOCUS.country);      // focus subset
+const scope = () => S.worldwide ? V : VF;
+
+// GeoNet (GNS Science) live Volcanic Alert Levels for New Zealand: GVP number -> GeoNet volcano IDs
+const GEONET_IDS = {241070:["taupo"], 241080:["tongariro","ngauruhoe"], 241020:["aucklandvolcanicfield"],
+  242030:["kermadecislands"], 241021:["mayorisland"], 241050:["okataina"], 241040:["whiteisland"],
+  241100:["ruapehu"], 241030:["taranakiegmont"]};
+const VAL_DESC = ["No volcanic unrest", "Minor volcanic unrest", "Moderate to heightened volcanic unrest",
+  "Minor volcanic eruption", "Moderate volcanic eruption", "Major volcanic eruption"];
+const VAL = {};   // geonet id -> feature properties (filled asynchronously)
+fetch("https://api.geonet.org.nz/volcano/val", {headers:{Accept:"application/vnd.geo+json;version=2"}})
+  .then(r => r.json()).then(g => { for (const f of g.features) VAL[f.properties.volcanoID] = f.properties; VAL._t = new Date(); })
+  .catch(e => console.warn("GeoNet VAL unavailable", e));
+function geonetFor(v){
+  const ids = GEONET_IDS[v.n]; if (!ids) return null;
+  const hits = ids.map(i => VAL[i]).filter(Boolean); if (!hits.length) return null;
+  hits.sort((a,b) => b.level - a.level); return hits[0];
+}
+const TIERS = [
+  {key:"erupting", label:"Erupting",  color:"#67000d", desc:`last eruption ≤ 92 days before ${REF}`},
+  {key:"high",     label:"High",      color:"#ef3b2c", desc:"repose ≤ 500 years"},
+  {key:"moderate", label:"Moderate",  color:"#fdae61", desc:"repose ≤ 12,000 years (Holocene)"},
+  {key:"dormant",  label:"Dormant",   color:"#4575b4", desc:"Pleistocene, ≤ 2.5 million years"},
+  {key:"extinct",  label:"Extinct",   color:"#969696", desc:"> 2.5 million years"},
+];
+const UND = {key:"undated", label:"Undated", color:"#c9d2e0", desc:"Holocene, no dated eruption (\"active but untimed\")"};
+const TG_LIST = ["Stratovolcano / complex","Caldera","Shield","Monogenetic / field","Other"];
+
+function yearsSince(v){ return v.ley == null ? null : Math.max(REF - v.ley, 0); }
+function tierIdx(v){
+  const ys = yearsSince(v);
+  if (ys == null) return 5;
+  if (ys <= TH.erupting) return 0;
+  if (ys <= TH.high) return 1;
+  if (ys <= TH.moderate) return 2;
+  if (ys <= TH.dormant) return 3;
+  return 4;
+}
+const tierOf = v => (tierIdx(v) === 5 ? UND : TIERS[tierIdx(v)]);
+const fmt = n => n == null ? "—" : Math.round(n).toLocaleString("en-US");
+const fmtYr = y => y == null ? "undated" : (y < 0 ? Math.abs(y).toLocaleString("en-US") + " BCE" : y + " CE");
+function reposeText(ys){
+  if (ys == null) return "no dated eruption";
+  if (ys < 1) return "erupting now";
+  if (ys < 1000) return Math.round(ys) + " yr";
+  return (ys/1000).toFixed(ys < 10000 ? 1 : 0) + " kyr";
+}
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// =====================================================================
+//  Geometry helpers
+// =====================================================================
+const R = 6371008.8, d2r = Math.PI/180, r2d = 180/Math.PI;
+function destination(lat, lon, bearingDeg, distM){
+  const φ1 = lat*d2r, λ1 = lon*d2r, θ = bearingDeg*d2r, δ = distM/R;
+  const φ2 = Math.asin(Math.sin(φ1)*Math.cos(δ) + Math.cos(φ1)*Math.sin(δ)*Math.cos(θ));
+  const λ2 = λ1 + Math.atan2(Math.sin(θ)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ) - Math.sin(φ1)*Math.sin(φ2));
+  return {lat: φ2*r2d, lon: ((λ2*r2d + 540) % 360) - 180};
+}
+function haversine(lat1, lon1, lat2, lon2){
+  const dφ = (lat2-lat1)*d2r, dλ = (lon2-lon1)*d2r;
+  const a = Math.sin(dφ/2)**2 + Math.cos(lat1*d2r)*Math.cos(lat2*d2r)*Math.sin(dλ/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function bearingTo(lat1, lon1, lat2, lon2){
+  const φ1 = lat1*d2r, φ2 = lat2*d2r, dλ = (lon2-lon1)*d2r;
+  const y = Math.sin(dλ)*Math.cos(φ2), x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(dλ);
+  return (Math.atan2(y, x)*r2d + 360) % 360;
+}
+// Default viewing geometry by landform: broad features are viewed from further away
+function defaultView(v, stop){
+  const broad = v.tg === "Caldera" || v.tg === "Monogenetic / field";
+  const dist = (stop?.dist ?? (broad ? 22 : 11)) * 1000;
+  const alt  = stop?.alt  ?? (broad ? 8000 : 3800);
+  const bearing = stop?.bearing ?? 200;   // camera sits SSW of the volcano by default (sun-lit north faces)
+  const tilt = stop?.tilt ?? (broad ? 62 : 70);
+  return {dist, alt, bearing, tilt, orbit: stop?.orbit ?? 40};
+}
+function cameraFor(v, geom, bearing){
+  const b = bearing ?? geom.bearing;
+  const p = destination(v.lat, v.lon, b, geom.dist);
+  return {
+    position:{longitude:p.lon, latitude:p.lat, z:Math.max(v.elev||0, 0) + geom.alt, spatialReference:{wkid:4326}},
+    heading:(b + 180) % 360, tilt:geom.tilt,
+  };
+}
+
+// =====================================================================
+//  UI state
+// =====================================================================
+const S = {
+  tab:"tours", current:null, tour:null, stopIdx:-1, playing:false, orbiting:false,
+  flying:false, filterTiers:new Set([0,1,2,3,4,5]), filterTG:new Set(TG_LIST), search:"",
+  buildings:true, labels:true, worldwide:false,
+};
+const $ = s => document.querySelector(s);
+const toast = (msg, ms=2200) => { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), ms); };
+const setLoad = (pct, msg) => { $("#loadbar").style.width = pct + "%"; if (msg) $("#loadmsg").textContent = msg; };
+
+// =====================================================================
+//  ArcGIS Maps SDK for JavaScript (same engine as World Sky Tour)
+// =====================================================================
+setLoad(15, "Loading the ArcGIS 3D engine…");
+require([
+  "esri/Map", "esri/views/SceneView", "esri/layers/FeatureLayer", "esri/layers/SceneLayer",
+  "esri/Graphic", "esri/geometry/Point", "esri/Camera", "esri/core/reactiveUtils",
+], (Map, SceneView, FeatureLayer, SceneLayer, Graphic, Point, Camera, reactiveUtils) => {
+
+  const params = new URLSearchParams(location.search);
+  const quality = params.get("q") === "low" ? "low" : (params.get("q") === "high" ? "high" : "medium");
+  const INSTANT = params.has("instant");   // ?instant  -> jump to volcanoes without the fly-in animation
+
+  // ---- volcano layer (client-side FeatureLayer, 3D callout icons) -------
+  const graphics = V.map((v, i) => new Graphic({
+    geometry: new Point({longitude:v.lon, latitude:v.lat, spatialReference:{wkid:4326}}),
+    attributes:{oid:i, vn:v.n, name:v.name, tier:tierIdx(v), tg:v.tg, cty:v.cty},
+  }));
+  const tierSymbol = color => ({
+    type:"point-3d",
+    symbolLayers:[{type:"icon", resource:{primitive:"circle"}, size:9,
+      material:{color}, outline:{color:[0,0,0,.85], size:.7}}],
+    verticalOffset:{screenLength:26, maxWorldLength:2500, minWorldLength:40},
+    callout:{type:"line", size:1, color:[255,255,255,.55], border:{color:[0,0,0,.4]}},
+  });
+  const volcLayer = new FeatureLayer({
+    title:"Holocene volcanoes (GVP)", source:graphics, objectIdField:"oid", geometryType:"point",
+    spatialReference:{wkid:4326},
+    fields:[{name:"oid",type:"oid"},{name:"vn",type:"integer"},{name:"name",type:"string"},
+            {name:"tier",type:"integer"},{name:"tg",type:"string"},{name:"cty",type:"string"}],
+    elevationInfo:{mode:"relative-to-ground", offset:0},
+    screenSizePerspectiveEnabled:true,
+    popupEnabled:false,
+    renderer:{type:"unique-value", field:"tier",
+      uniqueValueInfos:[...TIERS.map((t,i)=>({value:i, symbol:tierSymbol(t.color), label:t.label})),
+                        {value:5, symbol:tierSymbol(UND.color), label:UND.label}]},
+    labelingInfo:[{
+      labelExpressionInfo:{expression:"$feature.name"}, labelPlacement:"above-center",
+      symbol:{type:"label-3d", symbolLayers:[{type:"text", size:11, material:{color:"white"},
+        halo:{color:[0,0,0,.75], size:1.6}, font:{family:"system-ui", weight:"bold"}}]},
+    }],
+    labelsVisible:true,
+  });
+
+  // ---- OpenStreetMap 3D buildings (same Esri Living Atlas layer as Sky Tour)
+  const buildings = new SceneLayer({
+    portalItem:{id:"ca0470dbbddb4db28bad74ed39949e25"}, title:"OSM 3D buildings",
+    popupEnabled:false,
+  });
+
+  const map = new Map({basemap:"satellite", ground:"world-elevation", layers:[buildings, volcLayer]});
+  const view = new SceneView({
+    container:"view", map, qualityProfile:quality, viewingMode:"global",
+    camera:{position:{longitude:172, latitude:-52, z:6_000_000, spatialReference:{wkid:4326}}, heading:0, tilt:0},
+    environment:{
+      atmosphereEnabled:true, atmosphere:{quality:quality === "high" ? "high" : "low"}, starsEnabled:true,
+      lighting:{type:"virtual", directShadowsEnabled:false},
+    },
+    ui:{components:["attribution"]},
+    popup:{defaultPopupTemplateEnabled:false},
+    highlightOptions:{color:"#ff7a3d", haloOpacity:.9, fillOpacity:.1},
+  });
+  view.ui.padding = {top:52, left:0, right:0, bottom:0};
+  window.view = view;
+  setLoad(45, "Streaming terrain and imagery…");
+
+  // ---- panels ----------------------------------------------------------
+  const side = $("#side");
+  function renderSide(){
+    const t = S.tab;
+    if (t === "tours") return renderTours();
+    if (t === "explore") return renderExplore();
+    if (t === "fly") return renderFly();
+    return renderLearn();
+  }
+  function renderTours(){
+    side.innerHTML = `<h2>Guided tours</h2>` + window.TOURS.map(tr => `
+      <div class="tour ${S.tour === tr ? "on" : ""}" data-id="${tr.id}">
+        <b>${esc(tr.title)}</b> <span class="note">· ${tr.stops.length} stops</span>
+        <p>${esc(tr.blurb)}</p>
+        ${S.tour === tr ? `<ol class="stops">${tr.stops.map((st,i) => {
+          const v = BYN[st.n]; if (!v) return "";
+          return `<li data-i="${i}" class="${S.stopIdx===i?"on":""}"><span class="idx">${i+1}</span>
+            <span class="sw" style="background:${tierOf(v).color}"></span>${esc(v.name)}<small style="margin-left:auto;color:var(--muted)">${esc(v.cty)}</small></li>`;
+        }).join("")}</ol>
+        <div class="row" style="margin-top:8px"><button class="btn primary" data-play="${tr.id}">▶ Play tour</button>
+        <span class="note">Auto-flies stop to stop; each stop orbits once.</span></div>` : ""}
+      </div>`).join("") +
+      `<p class="note" style="margin-top:14px">Tours are defined in <code>tours.js</code>: a list of GVP volcano numbers with a teaching note and optional camera geometry. Add your own.</p>`;
+    side.querySelectorAll(".tour").forEach(el => el.addEventListener("click", e => {
+      if (e.target.closest("[data-play]")) return;
+      const li = e.target.closest("li[data-i]");
+      const tr = window.TOURS.find(x => x.id === el.dataset.id);
+      if (li){ stopPlayback(false); S.tour = tr; goToStop(+li.dataset.i, true); return; }
+      S.tour = S.tour === tr ? null : tr; S.stopIdx = -1; renderSide();
+    }));
+    side.querySelectorAll("[data-play]").forEach(b => b.addEventListener("click", () => {
+      S.tour = window.TOURS.find(x => x.id === b.dataset.play); startPlayback();
+    }));
+  }
+  function renderExplore(){
+    const SC = scope();
+    const counts = TIERS.map((_,i)=>SC.filter(v=>tierIdx(v)===i).length); counts.push(SC.filter(v=>tierIdx(v)===5).length);
+    side.innerHTML = `<h2>Scope</h2>
+      <label class="ck"><input type="checkbox" id="ckW" ${S.worldwide?"checked":""}> Whole world (${V.length.toLocaleString()} volcanoes) instead of ${FOCUS.label} (${VF.length})</label>
+      <h2>Search</h2><input id="q" type="text" placeholder="Volcano or country… (Enter flies to the first hit)" value="${esc(S.search)}">
+      <h2>Show tiers</h2><div class="chips">${[...TIERS, UND].map((t,i)=>`<span class="chip ${S.filterTiers.has(i)?"on":""}" data-tier="${i}" style="${S.filterTiers.has(i)?`background:${t.color};${i>=2&&i!=3?"color:#111":""}`:""}">${t.label} <small>${counts[i]}</small></span>`).join("")}</div>
+      <h2>Landform</h2><div class="chips">${TG_LIST.map(g=>`<span class="chip ${S.filterTG.has(g)?"on":""}" data-tg="${g}" style="${S.filterTG.has(g)?"background:#33507a":""}">${g}</span>`).join("")}</div>
+      <h2>Volcanoes <span id="nres" class="note"></span></h2><div class="list" id="vlist"></div>
+      <h2>Layers</h2>
+      <label class="ck"><input type="checkbox" id="ckB" ${S.buildings?"checked":""}> 3D buildings (OpenStreetMap)</label>
+      <label class="ck"><input type="checkbox" id="ckL" ${S.labels?"checked":""}> Volcano labels</label>
+      <p class="note">Click any marker on the globe to fly to it. Ctrl+click anywhere to start flying from that spot.</p>`;
+    const q = $("#q");
+    q.addEventListener("input", () => { S.search = q.value; applyFilter(); fillList(); });
+    q.addEventListener("keydown", e => { if (e.key === "Enter"){ const v = filtered()[0]; if (v) flyToVolcano(v); } });
+    side.querySelectorAll("[data-tier]").forEach(c => c.addEventListener("click", () => { const i=+c.dataset.tier; S.filterTiers.has(i)?S.filterTiers.delete(i):S.filterTiers.add(i); applyFilter(); renderSide(); }));
+    side.querySelectorAll("[data-tg]").forEach(c => c.addEventListener("click", () => { const g=c.dataset.tg; S.filterTG.has(g)?S.filterTG.delete(g):S.filterTG.add(g); applyFilter(); renderSide(); }));
+    $("#ckW").addEventListener("change", e => setWorldwide(e.target.checked));
+    $("#ckB").addEventListener("change", e => { S.buildings = buildings.visible = e.target.checked; });
+    $("#ckL").addEventListener("change", e => { S.labels = volcLayer.labelsVisible = e.target.checked; });
+    fillList();
+  }
+  function filtered(){
+    const q = S.search.trim().toLowerCase();
+    return scope().filter(v => S.filterTiers.has(tierIdx(v)) && S.filterTG.has(v.tg) &&
+      (!q || v.name.toLowerCase().includes(q) || v.cty.toLowerCase().includes(q) || v.reg.toLowerCase().includes(q)));
+  }
+  function fillList(){
+    const list = $("#vlist"); if (!list) return;
+    const arr = filtered().slice().sort((a,b)=>(yearsSince(a)??1e12)-(yearsSince(b)??1e12));
+    $("#nres").textContent = `${arr.length} shown · sorted by repose`;
+    list.innerHTML = arr.slice(0,400).map(v => `<div data-vn="${v.n}"><span class="sw" style="background:${tierOf(v).color}"></span>${esc(v.name)}<small>${esc(v.cty)} · ${reposeText(yearsSince(v))}</small></div>`).join("");
+    list.querySelectorAll("[data-vn]").forEach(el => el.addEventListener("click", () => flyToVolcano(BYN[+el.dataset.vn])));
+  }
+  function applyFilter(){
+    const tiers = [...S.filterTiers], tgs = [...S.filterTG].map(g => `'${g.replace(/'/g,"''")}'`);
+    const q = S.search.trim().replace(/'/g,"''").toLowerCase();
+    let where = `tier IN (${tiers.length?tiers.join(","):-1}) AND tg IN (${tgs.length?tgs.join(","):"''"})`;
+    if (q) where += ` AND (LOWER(name) LIKE '%${q}%' OR LOWER(cty) LIKE '%${q}%')`;
+    if (!S.worldwide) where += ` AND cty = '${FOCUS.country.replace(/'/g,"''")}'`;
+    volcLayer.definitionExpression = where;
+  }
+  function setWorldwide(on, announce=true){
+    if (S.worldwide === on) return;
+    S.worldwide = on;
+    $("#scopeBtn").textContent = on ? `🥝 ${FOCUS.country} only` : "🌏 Whole world";
+    $("#scopeBtn").classList.toggle("active", on);
+    applyFilter(); renderLegend(); renderSide();
+    if (announce) toast(on ? `Showing all ${V.length.toLocaleString()} Holocene volcanoes` : `Showing ${FOCUS.label}: ${VF.length} volcanoes`);
+    if (!on && !S.current) view.goTo(FOCUS.camera, {speedFactor:.6, maxDuration:6000}).catch(()=>{});
+  }
+  $("#scopeBtn").addEventListener("click", () => setWorldwide(!S.worldwide));
+  function renderFly(){
+    side.innerHTML = `<h2>Free flight</h2>
+      <p class="note">Take the controls and fly the terrain yourself, Sky-Tour style. Start from the volcano you are looking at, or Ctrl+click anywhere on the globe.</p>
+      <div class="row" style="margin:10px 0"><button class="btn primary" id="flyStart">${S.flying?"⏹ Stop flying":"✈ Start flying here"}</button>
+      <button class="btn" id="flyNearest">Fly to nearest volcano</button></div>
+      <h2>Controls</h2>
+      <div class="keys">
+        <span><kbd>W</kbd>/<kbd>S</kbd></span><span>pitch nose down / up</span>
+        <span><kbd>A</kbd>/<kbd>D</kbd></span><span>bank left / right</span>
+        <span><kbd>↑</kbd>/<kbd>↓</kbd></span><span>climb / descend</span>
+        <span><kbd>Shift</kbd></span><span>turbo</span>
+        <span><kbd>Space</kbd></span><span>brake (hold)</span>
+        <span><kbd>+</kbd>/<kbd>−</kbd></span><span>cruise speed</span>
+        <span><kbd>Esc</kbd></span><span>stop flying</span>
+      </div>
+      <h2>Cruise speed <b id="spdLbl" style="color:var(--accent)">${Math.round(F.cruise*3.6)} km/h</b></h2>
+      <input type="range" id="spd" min="30" max="1500" step="10" value="${Math.round(F.cruise)}">
+      <p class="note">The aircraft cannot fly below 120 m above ground: terrain following is on. Speeds are exaggerated so the world stays fun to cross.</p>
+      <h2>Quality</h2>
+      <p class="note">Rendering quality follows <code>?q=low|medium|high</code> in the URL (currently <b>${quality}</b>). Use low on laptops without a GPU.</p>`;
+    $("#flyStart").addEventListener("click", () => S.flying ? stopFlight() : startFlight());
+    $("#flyNearest").addEventListener("click", () => { const v = nearestVolcano(); if (v) flyToVolcano(v); });
+    $("#spd").addEventListener("input", e => { F.cruise = +e.target.value; $("#spdLbl").textContent = Math.round(F.cruise*3.6) + " km/h"; });
+  }
+  function renderLearn(){
+    const counts = TIERS.map((_,i)=>V.filter(v=>tierIdx(v)===i).length); const nund = V.filter(v=>tierIdx(v)===5).length;
+    side.innerHTML = `<h2>Erupting, active, dormant, extinct?</h2>
+      <p class="note">These words are used inconsistently by scientists, media and the public. The classification below (draft Table 2 of Kennedy et al., in prep.) uses the <b>time since the last eruption</b> ("repose") relative to the reference year ${REF}:</p>
+      ${TIERS.map((t,i)=>`<div class="stat"><span><span class="sw" style="background:${t.color}"></span><b>${t.label}</b> <span class="note">${t.desc}</span></span><span>${i<3?counts[i].toLocaleString():"—"}</span></div>`).join("")}
+      <div class="stat"><span><span class="sw" style="background:${UND.color}"></span><b>${UND.label}</b> <span class="note">${UND.desc}</span></span><span>${nund}</span></div>
+      <p class="note" style="margin-top:10px">The Smithsonian GVP counts every volcano with a Holocene eruption (last ~12,000 years) as <i>active</i>: that is ${META.n_volcanoes.toLocaleString()} volcanoes, of which ${META.n_dated} have a dated last eruption and ${META.n_undated} (${Math.round(100*META.n_undated/META.n_volcanoes)}%) do not. Pleistocene volcanoes (the "dormant" tier) are not shown on this globe yet.</p>
+      <h2>New Zealand: live alert levels</h2>
+      <p class="note">For Aotearoa's monitored volcanoes the card also shows GeoNet's <b>Volcanic Alert Level</b> (0 no unrest · 1 minor unrest · 2 moderate/heightened unrest · 3–5 minor/moderate/major eruption), fetched live from <a href="https://www.geonet.org.nz/volcano" target="_blank">geonet.org.nz</a>${VAL._t ? " (updated " + VAL._t.toLocaleTimeString() + ")" : ""}. Compare it with the repose-based tier: Whakaari is 'erupting' on repose AND at VAL 2, while Taupo is 'moderate' on repose but monitored around the clock.</p>
+      <h2>Why repose is a weak label</h2>
+      <p class="note">Median repose is ~80 years for stratovolcanoes but ~1,000 years for monogenetic fields: the same word means very different things for different volcano types. Long silence does not mean magma has stopped accumulating (Methana, Greece: >100 kyr of quiet with continuous magma supply). And the largest populations often live around the longest-repose volcanoes: Campi Flegrei, Tatun, Chichinautzin, Auckland.</p>
+      <h2>Data &amp; credits</h2>
+      <p class="note">Volcanoes, eruptions, photos and summaries: Global Volcanism Program, Smithsonian Institution, <a href="https://volcano.si.edu" target="_blank">volcano.si.edu</a> (Venzke, E., ed.; Andrews et al. 2025, <i>Bull. Volcanol.</i> 87:34). Population within 5–100 km: LandScan via the GVP exposure service. ${META.n_eruptions.toLocaleString()} confirmed eruptions.<br><br>
+      Globe: ArcGIS Maps SDK for JavaScript; World Imagery and World Elevation 3D (Esri, Maxar, Airbus, USGS, NASA and others); 3D buildings © OpenStreetMap contributors via Esri Living Atlas.<br><br>
+      Concept inspired by <a href="https://ceddc.ch/arcgisworldskytour/" target="_blank">World Sky Tour</a> by Cédric Despierre Corporon. Built at the University of Canterbury for teaching.</p>`;
+  }
+
+  // ---- legend ------------------------------------------------------------
+  function renderLegend(){
+    const SC = scope();
+    const counts = TIERS.map((_,i)=>SC.filter(v=>tierIdx(v)===i).length);
+    $("#legend").innerHTML = `<h4>Time since last eruption (${REF}) · ${S.worldwide ? "world" : FOCUS.country}</h4>` +
+      TIERS.slice(0,3).map((t,i)=>`<div class="stat"><span><span class="sw" style="background:${t.color}"></span>${t.label} <span class="note">${t.desc}</span></span><b>${counts[i]}</b></div>`).join("") +
+      `<div class="stat"><span><span class="sw" style="background:${UND.color}"></span>Undated <span class="note">no dated eruption</span></span><b>${SC.filter(v=>tierIdx(v)===5).length}</b></div>`;
+  }
+
+  // ---- info card ---------------------------------------------------------
+  function showCard(v, note){
+    S.current = v;
+    const t = tierOf(v), ys = yearsSince(v), h = HIST[v.n];
+    $("#cardPhoto").innerHTML = v.photo ? `<img src="${esc(v.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.style.display='none'">
+      <div class="cap">${esc(v.cap).slice(0,180)}${v.cap.length>180?"…":""} <i style="opacity:.7">${esc(v.credit)}</i></div>` : "";
+    $("#cardPhoto").style.display = v.photo ? "" : "none";
+    $("#cardBody").innerHTML = `
+      <h3>${esc(v.name)} <span class="badge" style="background:${t.color};${t.key==="moderate"||t.key==="undated"?"color:#111":""}">${t.label}</span></h3>
+      <div class="meta">${esc(v.type)} · ${esc(v.cty)} · ${esc(v.sreg||v.reg)} · ${v.elev!=null?v.elev.toLocaleString()+" m":""}</div>
+      ${note ? `<div class="teach">${esc(note)}</div>` : ""}
+      ${(() => { const g = geonetFor(v); if (!g) return "";
+        const col = {Green:"#2e9e5b", Yellow:"#e0b400", Orange:"#f28c28", Red:"#d7301f"}[g.acc] || "#888";
+        return `<div class="stat" style="border:1px solid ${col};border-radius:6px;padding:6px 8px;margin:6px 0">
+          <span><span class="sw" style="background:${col}"></span><b>GeoNet Volcanic Alert Level ${g.level}</b></span>
+          <span class="note">${esc(g.activity || VAL_DESC[g.level] || "")} · <a href="https://www.geonet.org.nz/volcano/${esc(g.volcanoID)}" target="_blank">live ↗</a></span></div>`; })()}
+      <div class="facts">
+        <div><small>Last eruption</small><b>${fmtYr(v.ley)}</b></div>
+        <div><small>Repose</small><b>${reposeText(ys)}</b></div>
+        <div><small>People within 30 km</small><b>${fmt(v.p30)}</b></div>
+        <div><small>People within 100 km</small><b>${fmt(v.p100)}</b></div>
+        <div><small>Confirmed eruptions</small><b>${v.ne}</b></div>
+        <div><small>Tectonic setting</small><b style="font-size:11.5px">${esc(v.tec.split("/")[0].trim()||"—")}</b></div>
+      </div>
+      ${h && h.length > 1 ? `<div class="note">Eruption record (bar height = VEI)</div><canvas class="spark" id="spark" width="330" height="46"></canvas>` : ""}
+      ${v.sum ? `<details style="margin-top:8px"><summary>Geological summary (GVP)</summary><div class="sum">${esc(v.sum)}</div></details>` : ""}
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="orbitBtn">${S.orbiting?"⏹ Stop orbit":"⟳ Orbit"}</button>
+        <button class="btn" id="flyHereBtn">✈ Fly from here</button>
+        <button class="btn" id="shareBtn">🔗 Share</button>
+        <a class="btn" href="https://volcano.si.edu/volcano.cfm?vn=${v.n}" target="_blank" style="text-decoration:none">GVP #${v.n} ↗</a>
+      </div>`;
+    $("#card").classList.add("show");
+    if (h && h.length > 1) drawSpark($("#spark"), h);
+    $("#orbitBtn").addEventListener("click", () => S.orbiting ? stopOrbit() : startOrbit(v));
+    $("#flyHereBtn").addEventListener("click", () => startFlight());
+    $("#shareBtn").addEventListener("click", () => {
+      const url = location.origin + location.pathname + location.search + "#vn=" + v.n;
+      navigator.clipboard?.writeText(url).then(() => toast("Link copied: " + url), () => toast(url, 6000));
+    });
+    location.hash = "vn=" + v.n;
+  }
+  function drawSpark(c, h){
+    const x = c.getContext("2d"), W = c.width, H = c.height;
+    const ys = h.map(e => e[0]), y0 = Math.min(...ys), y1 = Math.max(...ys, REF);
+    const span = Math.max(y1 - y0, 1);
+    x.clearRect(0,0,W,H);
+    x.fillStyle = "rgba(255,255,255,.08)"; x.fillRect(0, H-12, W, 1);
+    for (const [yr, vei] of h){
+      const px = 4 + (yr - y0) / span * (W - 8);
+      const hh = 6 + (vei == null ? 1 : vei) * 4;
+      x.fillStyle = vei != null && vei >= 4 ? "#ef3b2c" : "#fdae61";
+      x.fillRect(px - .75, H - 12 - hh, 1.5, hh);
+    }
+    x.fillStyle = "#98a4b8"; x.font = "9.5px system-ui"; x.textBaseline = "top";
+    x.fillText(fmtYr(y0), 2, H - 10); x.textAlign = "right"; x.fillText(fmtYr(y1), W - 2, H - 10);
+  }
+
+  // ---- navigation -------------------------------------------------------
+  let animToken = 0;
+  async function flyToVolcano(v, stop){
+    stopOrbit(); stopFlight(false);
+    if (v.cty !== FOCUS.country && !S.worldwide) setWorldwide(true, false);
+    const token = ++animToken;
+    const geom = defaultView(v, stop);
+    showCard(v, stop?.note);
+    highlight(v);
+    const far = haversine(view.camera.position.latitude, view.camera.position.longitude, v.lat, v.lon);
+    const cam = cameraFor(v, geom);
+    if (INSTANT){ view.camera = new Camera({position:new Point(cam.position), heading:cam.heading, tilt:cam.tilt}); return token === animToken; }
+    try {
+      await view.goTo(cam, {speedFactor: far > 3e6 ? 0.9 : 0.7, easing:"in-out-cubic", maxDuration:9000});
+    } catch(e){ /* interrupted */ }
+    return token === animToken;
+  }
+  let hl = null;
+  function highlight(v){
+    hl?.remove(); hl = null;
+    view.whenLayerView(volcLayer).then(lv => { hl?.remove(); hl = lv.highlight(V.indexOf(v)); });
+  }
+
+  // orbit around a volcano ---------------------------------------------------
+  let orbitRAF = 0;
+  function startOrbit(v, geom, onDone){
+    stopOrbit(); S.orbiting = true;
+    geom = geom || defaultView(v, S.tour?.stops[S.stopIdx]);
+    let b = bearingTo(v.lat, v.lon, view.camera.position.latitude, view.camera.position.longitude);
+    const start = b, secs = geom.orbit, t0 = performance.now();
+    const btn = $("#orbitBtn"); if (btn) btn.textContent = "⏹ Stop orbit";
+    function step(now){
+      if (!S.orbiting) return;
+      const frac = (now - t0) / (secs * 1000);
+      b = start + frac * 360;
+      const c = cameraFor(v, geom, b % 360);
+      view.camera = new Camera({position:new Point(c.position), heading:c.heading, tilt:c.tilt});
+      $("#tProg").style.width = Math.min(frac*100, 100) + "%";
+      if (frac >= 1){ stopOrbit(); onDone?.(); return; }
+      orbitRAF = requestAnimationFrame(step);
+    }
+    orbitRAF = requestAnimationFrame(step);
+  }
+  function stopOrbit(){
+    S.orbiting = false; cancelAnimationFrame(orbitRAF);
+    const btn = $("#orbitBtn"); if (btn) btn.textContent = "⟳ Orbit";
+  }
+
+  // tour playback ------------------------------------------------------------
+  async function goToStop(i, manual){
+    const tr = S.tour; if (!tr) return;
+    S.stopIdx = ((i % tr.stops.length) + tr.stops.length) % tr.stops.length;
+    const st = tr.stops[S.stopIdx], v = BYN[st.n];
+    if (!v){ toast("Unknown volcano number " + st.n); return; }
+    if (S.tab === "tours") renderSide();
+    $("#transport").classList.add("show");
+    $("#tTitle").textContent = `${tr.title} · ${S.stopIdx+1}/${tr.stops.length} · ${v.name}`;
+    $("#tProg").style.width = "0%";
+    const arrived = await flyToVolcano(v, st);
+    if (!arrived) return;
+    if (S.playing && !manual){
+      startOrbit(v, defaultView(v, st), () => { if (S.playing) goToStop(S.stopIdx + 1); });
+    }
+  }
+  function startPlayback(){ S.playing = true; $("#tPlay").textContent = "⏸"; goToStop(S.stopIdx < 0 ? 0 : S.stopIdx); }
+  function stopPlayback(hide=true){ S.playing = false; stopOrbit(); $("#tPlay").textContent = "▶"; if (hide){ $("#transport").classList.remove("show"); S.stopIdx = -1; } }
+  $("#tPlay").addEventListener("click", () => S.playing ? (S.playing=false, stopOrbit(), $("#tPlay").textContent="▶") : startPlayback());
+  $("#tNext").addEventListener("click", () => goToStop(S.stopIdx + 1, !S.playing));
+  $("#tPrev").addEventListener("click", () => goToStop(S.stopIdx - 1, !S.playing));
+  $("#tStop").addEventListener("click", () => { stopPlayback(); renderSide(); });
+
+  // ---- free flight (Sky-Tour style) -----------------------------------------
+  const F = {cruise:220, speed:0, lat:0, lon:0, z:0, heading:0, tilt:80, keys:new Set(), raf:0, last:0};
+  const MIN_AGL = 120;
+  function groundZ(lon, lat){
+    try {
+      const s = view.groundView?.elevationSampler;
+      if (s){ const p = s.queryElevation(new Point({longitude:lon, latitude:lat, spatialReference:{wkid:4326}})); if (p && p.z != null) return p.z; }
+    } catch(e){}
+    return 0;
+  }
+  function startFlight(){
+    stopOrbit(); stopPlayback(true);
+    const c = view.camera;
+    F.lat = c.position.latitude; F.lon = c.position.longitude; F.z = c.position.z;
+    F.heading = c.heading; F.tilt = Math.max(60, Math.min(95, c.tilt)); F.speed = F.cruise * .5; F.keys.clear();
+    if (F.z > 60000){ F.z = 12000; }                       // came from space: drop to a sensible altitude
+    F.z = Math.max(F.z, groundZ(F.lon, F.lat) + 600);
+    S.flying = true; $("#hud").classList.add("show"); $("#crosshair").classList.add("show");
+    $("#card").classList.remove("show"); hl?.remove();
+    view.container.focus?.();
+    toast("Flying. W/S pitch · A/D turn · ↑/↓ climb · Shift turbo · Space brake · Esc to stop", 4500);
+    if (S.tab === "fly") renderSide();
+    F.last = performance.now(); F.raf = requestAnimationFrame(flightStep);
+  }
+  function stopFlight(rerender=true){
+    if (!S.flying) return;
+    S.flying = false; cancelAnimationFrame(F.raf);
+    $("#hud").classList.remove("show"); $("#crosshair").classList.remove("show");
+    if (rerender && S.tab === "fly") renderSide();
+  }
+  function flightStep(now){
+    if (!S.flying) return;
+    const dt = Math.min((now - F.last) / 1000, .1); F.last = now;
+    const k = F.keys;
+    const target = k.has("Space") ? 0 : F.cruise * (k.has("ShiftLeft")||k.has("ShiftRight") ? 3.2 : 1);
+    F.speed += (target - F.speed) * Math.min(dt * 1.6, 1);
+    const turn = 38 * dt * (0.6 + 0.4 * Math.min(F.speed / F.cruise, 1));
+    if (k.has("KeyA")||k.has("ArrowLeft"))  F.heading -= turn;
+    if (k.has("KeyD")||k.has("ArrowRight")) F.heading += turn;
+    if (k.has("KeyW")) F.tilt = Math.min(F.tilt + 28*dt, 112);   // nose down (tilt > 90 looks down)
+    if (k.has("KeyS")) F.tilt = Math.max(F.tilt - 28*dt, 45);    // nose up
+    let climb = 0;
+    if (k.has("ArrowUp")||k.has("KeyE")) climb += 1;
+    if (k.has("ArrowDown")||k.has("KeyQ")) climb -= 1;
+    F.heading = (F.heading + 360) % 360;
+    // forward motion along heading; the pitch converts part of the speed to vertical motion
+    const pitch = (90 - F.tilt) * d2r;                            // + = nose up
+    const horiz = F.speed * Math.cos(pitch) * dt;
+    const vert  = F.speed * Math.sin(pitch) * dt + climb * F.speed * .6 * dt;
+    const p = destination(F.lat, F.lon, F.heading, horiz);
+    F.lat = p.lat; F.lon = p.lon; F.z += vert;
+    const g = groundZ(F.lon, F.lat);
+    if (F.z < g + MIN_AGL){ F.z = g + MIN_AGL; if (F.tilt > 92) F.tilt -= 20*dt; }
+    view.camera = new Camera({position:new Point({longitude:F.lon, latitude:F.lat, z:F.z, spatialReference:{wkid:4326}}), heading:F.heading, tilt:F.tilt});
+    $("#hudSpd").textContent = Math.round(F.speed * 3.6); $("#hudAlt").textContent = Math.round(F.z).toLocaleString();
+    $("#hudAgl").textContent = Math.round(F.z - g).toLocaleString(); $("#hudHdg").textContent = String(Math.round(F.heading) % 360).padStart(3,"0");
+    if ((now|0) % 20 === 0){ const nv = nearestVolcano(); if (nv) $("#hudNear").textContent = `${nv.name} ${(haversine(F.lat,F.lon,nv.lat,nv.lon)/1000).toFixed(0)} km`; }
+    F.raf = requestAnimationFrame(flightStep);
+  }
+  function nearestVolcano(){
+    const c = view.camera.position; let best = null, bd = Infinity;
+    for (const v of V){ const d = haversine(c.latitude, c.longitude, v.lat, v.lon); if (d < bd){ bd = d; best = v; } }
+    return best;
+  }
+  const FLIGHT_KEYS = new Set(["KeyW","KeyA","KeyS","KeyD","KeyQ","KeyE","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","ShiftLeft","ShiftRight"]);
+  window.addEventListener("keydown", e => {
+    if (e.target.matches("input,textarea")) return;
+    if (e.code === "Escape"){ stopFlight(); if (S.orbiting) stopOrbit(); return; }
+    if (!S.flying) return;
+    if (e.code === "Equal" || e.code === "NumpadAdd"){ F.cruise = Math.min(F.cruise*1.25, 1500); toast(`Cruise ${Math.round(F.cruise*3.6)} km/h`, 900); }
+    if (e.code === "Minus" || e.code === "NumpadSubtract"){ F.cruise = Math.max(F.cruise/1.25, 30); toast(`Cruise ${Math.round(F.cruise*3.6)} km/h`, 900); }
+    if (FLIGHT_KEYS.has(e.code)){ F.keys.add(e.code); e.preventDefault(); }
+  }, true);
+  window.addEventListener("keyup", e => F.keys.delete(e.code), true);
+  window.addEventListener("blur", () => F.keys.clear());
+  // keep the SDK's own keyboard navigation out of the way while flying
+  view.on("key-down", e => { if (S.flying) e.stopPropagation(); });
+  view.on("key-up",   e => { if (S.flying) e.stopPropagation(); });
+  // any mouse drag ends orbit / flight so the user regains control
+  view.on("drag", e => { if (e.action === "start"){ if (S.orbiting) stopOrbit(); if (S.playing){ S.playing = false; $("#tPlay").textContent = "▶"; } } });
+
+  // ---- clicks on the globe --------------------------------------------------
+  view.on("click", e => {
+    view.hitTest(e, {include:[volcLayer]}).then(r => {
+      const g = r.results.find(x => x.graphic?.layer === volcLayer)?.graphic;
+      if (g){ stopPlayback(); flyToVolcano(BYN[g.attributes.vn]); return; }
+      if (e.native?.ctrlKey && e.mapPoint){
+        stopOrbit(); stopPlayback();
+        const z = (e.mapPoint.z || 0) + 2500;
+        view.goTo({position:{longitude:e.mapPoint.longitude, latitude:e.mapPoint.latitude, z, spatialReference:{wkid:4326}}, heading:view.camera.heading, tilt:78},
+                  {speedFactor:.8, maxDuration:6000}).then(() => startFlight()).catch(()=>{});
+      }
+    });
+  });
+  view.on("pointer-move", e => {
+    view.hitTest(e, {include:[volcLayer]}).then(r => { view.container.style.cursor = r.results.length ? "pointer" : ""; });
+  });
+
+  // ---- header tabs ----------------------------------------------------------
+  document.querySelectorAll(".tabs button[data-tab]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button[data-tab]").forEach(x => x.classList.toggle("active", x === b));
+    S.tab = b.dataset.tab; side.classList.remove("collapsed"); renderSide();
+  }));
+  $("#togglePanel").addEventListener("click", () => side.classList.toggle("collapsed"));
+  $("#cardClose").addEventListener("click", () => { $("#card").classList.remove("show"); stopOrbit(); hl?.remove(); });
+
+  // ---- boot -----------------------------------------------------------------
+  S.tour = window.TOURS[0];   // open the first (New Zealand) tour by default
+  renderLegend(); renderSide(); applyFilter();
+  reactiveUtils.whenOnce(() => view.ready).then(() => setLoad(70, `Placing ${META.n_volcanoes.toLocaleString()} volcanoes…`));
+  view.when(() => {
+    view.whenLayerView(volcLayer).then(() => {
+      setLoad(100, "Ready");
+      setTimeout(() => $("#loader").classList.add("hide"), 300);
+      const m = location.hash.match(/vn=(\d+)/);
+      const v0 = m ? BYN[+m[1]] : null;
+      if (v0) flyToVolcano(v0);
+      else {
+        // gentle intro: settle over Aotearoa New Zealand, looking north up the Taupo Volcanic Zone
+        view.goTo(FOCUS.camera, {speedFactor:.4, maxDuration:7000}).catch(()=>{});
+      }
+    });
+  }, err => { setLoad(100, "Could not start the 3D view: " + err.message); console.error(err); });
+  $("#hsub").textContent = `${FOCUS.label}'s ${VF.length} Holocene volcanoes in 3D (${META.n_volcanoes.toLocaleString()} worldwide) · Smithsonian GVP · ref. year ${REF}`;
+});
+</script>
+</body>
+</html>
