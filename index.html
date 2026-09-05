@@ -184,7 +184,8 @@ const REF = META.ref_year, TH = META.thresholds;
 const BYN = Object.fromEntries(V.map(v => [v.n, v]));
 // Starting scope: the app boots showing only this country; "Whole world" opens everything up.
 const FOCUS = {country:"New Zealand", label:"Aotearoa New Zealand",
-  camera:{position:{longitude:176.5, latitude:-46.5, z:1_250_000, spatialReference:{wkid:4326}}, heading:350, tilt:38}};
+  // opening view: centred on the North Island (Taupo Volcanic Zone in the middle), gently tilted
+  target:{lon:175.3, lat:-38.7, scale:3_400_000, tilt:35, heading:0}};
 const VF = V.filter(v => v.cty === FOCUS.country);      // focus subset
 const scope = () => S.worldwide ? V : VF;
 
@@ -295,7 +296,8 @@ require([
 
   const params = new URLSearchParams(location.search);
   const quality = params.get("q") === "low" ? "low" : (params.get("q") === "high" ? "high" : "medium");
-  const INSTANT = params.has("instant");   // ?instant  -> jump to volcanoes without the fly-in animation
+  const INSTANT = params.has("instant");
+  const focusView = () => ({target:new Point({longitude:FOCUS.target.lon, latitude:FOCUS.target.lat, spatialReference:{wkid:4326}}), scale:FOCUS.target.scale, tilt:FOCUS.target.tilt, heading:FOCUS.target.heading});   // ?instant  -> jump to volcanoes without the fly-in animation
 
   // ---- volcano layer (client-side FeatureLayer, 3D callout icons) -------
   const graphics = V.map((v, i) => new Graphic({
@@ -337,7 +339,7 @@ require([
   const map = new Map({basemap:"satellite", ground:"world-elevation", layers:[buildings, volcLayer]});
   const view = new SceneView({
     container:"view", map, qualityProfile:quality, viewingMode:"global",
-    camera:{position:{longitude:172, latitude:-52, z:6_000_000, spatialReference:{wkid:4326}}, heading:0, tilt:0},
+    camera:{position:{longitude:175.6, latitude:-41.5, z:2_500_000, spatialReference:{wkid:4326}}, heading:0, tilt:0},
     environment:{
       atmosphereEnabled:true, atmosphere:{quality:quality === "high" ? "high" : "low"}, starsEnabled:true,
       lighting:{type:"virtual", directShadowsEnabled:false},
@@ -433,7 +435,7 @@ require([
     $("#scopeBtn").classList.toggle("active", on);
     applyFilter(); renderLegend(); renderSide();
     if (announce) toast(on ? `Showing all ${V.length.toLocaleString()} Holocene volcanoes` : `Showing ${FOCUS.label}: ${VF.length} volcanoes`);
-    if (!on && !S.current) view.goTo(FOCUS.camera, {speedFactor:.6, maxDuration:6000}).catch(()=>{});
+    if (!on && !S.current) view.goTo(focusView(), {speedFactor:.6, maxDuration:6000}).catch(()=>{});
   }
   $("#scopeBtn").addEventListener("click", () => setWorldwide(!S.worldwide));
   function renderLearn(){
@@ -624,8 +626,8 @@ require([
       const v0 = m ? BYN[+m[1]] : null;
       if (v0) flyToVolcano(v0);
       else {
-        // gentle intro: settle over Aotearoa New Zealand, looking north up the Taupo Volcanic Zone
-        view.goTo(FOCUS.camera, {speedFactor:.4, maxDuration:7000}).catch(()=>{});
+        // gentle intro: settle over the North Island
+        view.goTo(focusView(), {speedFactor:.4, maxDuration:7000}).catch(()=>{});
       }
     });
   }, err => { setLoad(100, "Could not start the 3D view: " + err.message); console.error(err); });
