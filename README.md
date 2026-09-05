@@ -41,10 +41,10 @@ URL options:
   numbers + notes + optional camera geometry). NZ tours come first.
 - **Explore** – search, filter by repose tier and landform, NZ / world scope,
   toggle buildings and labels. Click a marker to fly there.
-- **Fly** – Sky-Tour-style free flight over the terrain: `W/S` pitch, `A/D`
-  turn, `↑/↓` climb, `Shift` turbo, `Space` brake, `+/-` cruise speed,
-  `Esc` stop. Terrain following keeps you ≥120 m above ground. Ctrl+click
-  anywhere on the globe to start flying from that point.
+- **Free flight** – *Fly from here* on any volcano card (or Ctrl+click the
+  globe) gives Sky-Tour-style controls: `W/S` pitch, `A/D` turn, `↑/↓` climb,
+  `Shift` turbo, `Space` brake, `+/-` cruise speed, `Esc` stop. Terrain
+  following keeps you ≥120 m above ground.
 - **Learn** – the erupting / high / moderate / dormant / extinct tiers of the
   paper's draft Table 2, why repose is a weak label, GeoNet alert levels, credits.
 - **Info card** – GVP photo, tier badge, last eruption, repose, LandScan

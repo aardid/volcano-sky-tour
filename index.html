@@ -155,7 +155,6 @@
   <nav class="tabs">
     <button data-tab="tours" class="active">Tours</button>
     <button data-tab="explore">Explore</button>
-    <button data-tab="fly">Fly</button>
     <button data-tab="learn">Learn</button>
     <button id="scopeBtn" class="tb" title="Switch between New Zealand only and the whole world">🌏 Whole world</button>
     <button id="togglePanel" class="tb" title="Hide / show panel">☰</button>
@@ -375,7 +374,6 @@ require([
     const t = S.tab;
     if (t === "tours") return renderTours();
     if (t === "explore") return renderExplore();
-    if (t === "fly") return renderFly();
     return renderLearn();
   }
   function renderTours(){
@@ -456,30 +454,6 @@ require([
     if (!on && !S.current) view.goTo(FOCUS.camera, {speedFactor:.6, maxDuration:6000}).catch(()=>{});
   }
   $("#scopeBtn").addEventListener("click", () => setWorldwide(!S.worldwide));
-  function renderFly(){
-    side.innerHTML = `<h2>Free flight</h2>
-      <p class="note">Take the controls and fly the terrain yourself, Sky-Tour style. Start from the volcano you are looking at, or Ctrl+click anywhere on the globe.</p>
-      <div class="row" style="margin:10px 0"><button class="btn primary" id="flyStart">${S.flying?"⏹ Stop flying":"✈ Start flying here"}</button>
-      <button class="btn" id="flyNearest">Fly to nearest volcano</button></div>
-      <h2>Controls</h2>
-      <div class="keys">
-        <span><kbd>W</kbd>/<kbd>S</kbd></span><span>pitch nose down / up</span>
-        <span><kbd>A</kbd>/<kbd>D</kbd></span><span>bank left / right</span>
-        <span><kbd>↑</kbd>/<kbd>↓</kbd></span><span>climb / descend</span>
-        <span><kbd>Shift</kbd></span><span>turbo</span>
-        <span><kbd>Space</kbd></span><span>brake (hold)</span>
-        <span><kbd>+</kbd>/<kbd>−</kbd></span><span>cruise speed</span>
-        <span><kbd>Esc</kbd></span><span>stop flying</span>
-      </div>
-      <h2>Cruise speed <b id="spdLbl" style="color:var(--accent)">${Math.round(F.cruise*3.6)} km/h</b></h2>
-      <input type="range" id="spd" min="30" max="1500" step="10" value="${Math.round(F.cruise)}">
-      <p class="note">The aircraft cannot fly below 120 m above ground: terrain following is on. Speeds are exaggerated so the world stays fun to cross.</p>
-      <h2>Quality</h2>
-      <p class="note">Rendering quality follows <code>?q=low|medium|high</code> in the URL (currently <b>${quality}</b>). Use low on laptops without a GPU.</p>`;
-    $("#flyStart").addEventListener("click", () => S.flying ? stopFlight() : startFlight());
-    $("#flyNearest").addEventListener("click", () => { const v = nearestVolcano(); if (v) flyToVolcano(v); });
-    $("#spd").addEventListener("input", e => { F.cruise = +e.target.value; $("#spdLbl").textContent = Math.round(F.cruise*3.6) + " km/h"; });
-  }
   function renderLearn(){
     const counts = TIERS.map((_,i)=>V.filter(v=>tierIdx(v)===i).length); const nund = V.filter(v=>tierIdx(v)===5).length;
     side.innerHTML = `<h2>Erupting, active, dormant, extinct?</h2>
@@ -491,6 +465,8 @@ require([
       <p class="note">For Aotearoa's monitored volcanoes the card also shows GeoNet's <b>Volcanic Alert Level</b> (0 no unrest · 1 minor unrest · 2 moderate/heightened unrest · 3–5 minor/moderate/major eruption), fetched live from <a href="https://www.geonet.org.nz/volcano" target="_blank">geonet.org.nz</a>${VAL._t ? " (updated " + VAL._t.toLocaleTimeString() + ")" : ""}. Compare it with the repose-based tier: Whakaari is 'erupting' on repose AND at VAL 2, while Taupo is 'moderate' on repose but monitored around the clock.</p>
       <h2>Why repose is a weak label</h2>
       <p class="note">Median repose is ~80 years for stratovolcanoes but ~1,000 years for monogenetic fields: the same word means very different things for different volcano types. Long silence does not mean magma has stopped accumulating (Methana, Greece: >100 kyr of quiet with continuous magma supply). And the largest populations often live around the longest-repose volcanoes: Campi Flegrei, Tatun, Chichinautzin, Auckland.</p>
+      <h2>Free flight</h2>
+      <p class="note">Press <b>Fly from here</b> on any volcano card (or Ctrl+click the globe) to take the controls: <kbd>W</kbd>/<kbd>S</kbd> pitch, <kbd>A</kbd>/<kbd>D</kbd> turn, <kbd>↑</kbd>/<kbd>↓</kbd> climb, <kbd>Shift</kbd> turbo, <kbd>Space</kbd> brake, <kbd>+</kbd>/<kbd>−</kbd> cruise speed, <kbd>Esc</kbd> to stop. Terrain following keeps you above 120 m. Add <code>?q=low</code> to the URL on laptops without a GPU.</p>
       <h2>Data &amp; credits</h2>
       <p class="note">Volcanoes, eruptions, photos and summaries: Global Volcanism Program, Smithsonian Institution, <a href="https://volcano.si.edu" target="_blank">volcano.si.edu</a> (Venzke, E., ed.; Andrews et al. 2025, <i>Bull. Volcanol.</i> 87:34). Population within 5–100 km: LandScan via the GVP exposure service. ${META.n_eruptions.toLocaleString()} confirmed eruptions.<br><br>
       Globe: ArcGIS Maps SDK for JavaScript; World Imagery and World Elevation 3D (Esri, Maxar, Airbus, USGS, NASA and others); 3D buildings © OpenStreetMap contributors via Esri Living Atlas.<br><br>
@@ -656,14 +632,12 @@ require([
     $("#card").classList.remove("show"); hl?.remove();
     view.container.focus?.();
     toast("Flying. W/S pitch · A/D turn · ↑/↓ climb · Shift turbo · Space brake · Esc to stop", 4500);
-    if (S.tab === "fly") renderSide();
     F.last = performance.now(); F.raf = requestAnimationFrame(flightStep);
   }
   function stopFlight(rerender=true){
     if (!S.flying) return;
     S.flying = false; cancelAnimationFrame(F.raf);
     $("#hud").classList.remove("show"); $("#crosshair").classList.remove("show");
-    if (rerender && S.tab === "fly") renderSide();
   }
   function flightStep(now){
     if (!S.flying) return;
