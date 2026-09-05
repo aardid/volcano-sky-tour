@@ -12,6 +12,7 @@ whole world behind a toggle. Not a git repo (yet).
 - `FOCUS` constant in `index.html` sets the starting country/camera.
 
 ## Conventions
+- No free-flight / keyboard flying feature: Alberto removed it on 2026-09-05 ("I dont want that feature"). Navigation = fly-to + orbit + tours only.
 - REF_YEAR 2026; thresholds erupting 0.252 yr / high 500 / moderate 12,000 / dormant 2.5e6 — keep in sync with the BK paper.
 - Volcano markers: client-side `FeatureLayer` with `definitionExpression` for filters (tier, tg, cty).
 - Camera framing: `defaultView()` — broad landforms (caldera, field) viewed from further away.

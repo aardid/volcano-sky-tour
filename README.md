@@ -41,10 +41,6 @@ URL options:
   numbers + notes + optional camera geometry). NZ tours come first.
 - **Explore** – search, filter by repose tier and landform, NZ / world scope,
   toggle buildings and labels. Click a marker to fly there.
-- **Free flight** – *Fly from here* on any volcano card (or Ctrl+click the
-  globe) gives Sky-Tour-style controls: `W/S` pitch, `A/D` turn, `↑/↓` climb,
-  `Shift` turbo, `Space` brake, `+/-` cruise speed, `Esc` stop. Terrain
-  following keeps you ≥120 m above ground.
 - **Learn** – the erupting / high / moderate / dormant / extinct tiers of the
   paper's draft Table 2, why repose is a weak label, GeoNet alert levels, credits.
 - **Info card** – GVP photo, tier badge, last eruption, repose, LandScan
@@ -80,6 +76,5 @@ World Imagery, World Elevation 3D; © OpenStreetMap contributors.
 
 - Pleistocene ("dormant") volcanoes on the globe (GVP has no per-volcano ages).
 - Eruption-timeline scrubber (exists in the 2D BK webapp; port to 3D).
-- A plane/chase-camera model and cockpit view like the original Sky Tour.
 - Hazard footprints (lahar paths, ashfall, AVF vent-density) as scene layers.
 - Te reo Māori names/narration; multilingual UI.

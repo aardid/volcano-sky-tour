@@ -114,15 +114,6 @@
   #transport .prog{width:120px;height:3px;background:#2a3446;border-radius:2px;overflow:hidden}
   #transport .prog i{display:block;height:100%;background:var(--accent);width:0}
 
-  /* ---- flight HUD ---- */
-  #hud{position:absolute;left:50%;top:60px;transform:translateX(-50%);z-index:16;display:none;gap:18px;
-    background:rgba(8,11,17,.7);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font:12px ui-monospace,Consolas,monospace}
-  #hud.show{display:flex}
-  #hud b{color:var(--accent);font-variant-numeric:tabular-nums}
-  #hud span small{color:var(--muted)}
-  #crosshair{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;z-index:14;display:none;pointer-events:none;
-    border:1.5px solid rgba(255,255,255,.55);border-radius:50%}
-  #crosshair.show{display:block}
   #toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:30;background:var(--panel);border:1px solid var(--line);
     border-radius:8px;padding:8px 14px;font-size:12.5px;opacity:0;transition:opacity .3s;pointer-events:none}
   #toast.show{opacity:1}
@@ -147,7 +138,6 @@
 </div>
 
 <div id="view"></div>
-<div id="crosshair"></div>
 
 <header>
   <h1><span>▲</span> Volcano Sky Tour</h1>
@@ -164,14 +154,6 @@
 <aside id="side"></aside>
 
 <div id="legend"></div>
-
-<div id="hud">
-  <span><small>SPEED</small> <b id="hudSpd">0</b> km/h</span>
-  <span><small>ALT</small> <b id="hudAlt">0</b> m</span>
-  <span><small>AGL</small> <b id="hudAgl">0</b> m</span>
-  <span><small>HDG</small> <b id="hudHdg">000</b>°</span>
-  <span><small>NEAREST</small> <b id="hudNear">—</b></span>
-</div>
 
 <div id="card">
   <button class="close" id="cardClose" title="Close">✕</button>
@@ -295,7 +277,7 @@ function cameraFor(v, geom, bearing){
 // =====================================================================
 const S = {
   tab:"tours", current:null, tour:null, stopIdx:-1, playing:false, orbiting:false,
-  flying:false, filterTiers:new Set([0,1,2,3,4,5]), filterTG:new Set(TG_LIST), search:"",
+  filterTiers:new Set([0,1,2,3,4,5]), filterTG:new Set(TG_LIST), search:"",
   buildings:true, labels:true, worldwide:false,
 };
 const $ = s => document.querySelector(s);
@@ -413,7 +395,7 @@ require([
       <h2>Layers</h2>
       <label class="ck"><input type="checkbox" id="ckB" ${S.buildings?"checked":""}> 3D buildings (OpenStreetMap)</label>
       <label class="ck"><input type="checkbox" id="ckL" ${S.labels?"checked":""}> Volcano labels</label>
-      <p class="note">Click any marker on the globe to fly to it. Ctrl+click anywhere to start flying from that spot.</p>`;
+      <p class="note">Click any marker on the globe to fly to it.</p>`;
     const q = $("#q");
     q.addEventListener("input", () => { S.search = q.value; applyFilter(); fillList(); });
     q.addEventListener("keydown", e => { if (e.key === "Enter"){ const v = filtered()[0]; if (v) flyToVolcano(v); } });
@@ -465,8 +447,6 @@ require([
       <p class="note">For Aotearoa's monitored volcanoes the card also shows GeoNet's <b>Volcanic Alert Level</b> (0 no unrest · 1 minor unrest · 2 moderate/heightened unrest · 3–5 minor/moderate/major eruption), fetched live from <a href="https://www.geonet.org.nz/volcano" target="_blank">geonet.org.nz</a>${VAL._t ? " (updated " + VAL._t.toLocaleTimeString() + ")" : ""}. Compare it with the repose-based tier: Whakaari is 'erupting' on repose AND at VAL 2, while Taupo is 'moderate' on repose but monitored around the clock.</p>
       <h2>Why repose is a weak label</h2>
       <p class="note">Median repose is ~80 years for stratovolcanoes but ~1,000 years for monogenetic fields: the same word means very different things for different volcano types. Long silence does not mean magma has stopped accumulating (Methana, Greece: >100 kyr of quiet with continuous magma supply). And the largest populations often live around the longest-repose volcanoes: Campi Flegrei, Tatun, Chichinautzin, Auckland.</p>
-      <h2>Free flight</h2>
-      <p class="note">Press <b>Fly from here</b> on any volcano card (or Ctrl+click the globe) to take the controls: <kbd>W</kbd>/<kbd>S</kbd> pitch, <kbd>A</kbd>/<kbd>D</kbd> turn, <kbd>↑</kbd>/<kbd>↓</kbd> climb, <kbd>Shift</kbd> turbo, <kbd>Space</kbd> brake, <kbd>+</kbd>/<kbd>−</kbd> cruise speed, <kbd>Esc</kbd> to stop. Terrain following keeps you above 120 m. Add <code>?q=low</code> to the URL on laptops without a GPU.</p>
       <h2>Data &amp; credits</h2>
       <p class="note">Volcanoes, eruptions, photos and summaries: Global Volcanism Program, Smithsonian Institution, <a href="https://volcano.si.edu" target="_blank">volcano.si.edu</a> (Venzke, E., ed.; Andrews et al. 2025, <i>Bull. Volcanol.</i> 87:34). Population within 5–100 km: LandScan via the GVP exposure service. ${META.n_eruptions.toLocaleString()} confirmed eruptions.<br><br>
       Globe: ArcGIS Maps SDK for JavaScript; World Imagery and World Elevation 3D (Esri, Maxar, Airbus, USGS, NASA and others); 3D buildings © OpenStreetMap contributors via Esri Living Atlas.<br><br>
@@ -510,14 +490,12 @@ require([
       ${v.sum ? `<details style="margin-top:8px"><summary>Geological summary (GVP)</summary><div class="sum">${esc(v.sum)}</div></details>` : ""}
       <div class="row" style="margin-top:10px">
         <button class="btn" id="orbitBtn">${S.orbiting?"⏹ Stop orbit":"⟳ Orbit"}</button>
-        <button class="btn" id="flyHereBtn">✈ Fly from here</button>
         <button class="btn" id="shareBtn">🔗 Share</button>
         <a class="btn" href="https://volcano.si.edu/volcano.cfm?vn=${v.n}" target="_blank" style="text-decoration:none">GVP #${v.n} ↗</a>
       </div>`;
     $("#card").classList.add("show");
     if (h && h.length > 1) drawSpark($("#spark"), h);
     $("#orbitBtn").addEventListener("click", () => S.orbiting ? stopOrbit() : startOrbit(v));
-    $("#flyHereBtn").addEventListener("click", () => startFlight());
     $("#shareBtn").addEventListener("click", () => {
       const url = location.origin + location.pathname + location.search + "#vn=" + v.n;
       navigator.clipboard?.writeText(url).then(() => toast("Link copied: " + url), () => toast(url, 6000));
@@ -543,7 +521,7 @@ require([
   // ---- navigation -------------------------------------------------------
   let animToken = 0;
   async function flyToVolcano(v, stop){
-    stopOrbit(); stopFlight(false);
+    stopOrbit();
     if (v.cty !== FOCUS.country && !S.worldwide) setWorldwide(true, false);
     const token = ++animToken;
     const geom = defaultView(v, stop);
@@ -611,96 +589,15 @@ require([
   $("#tPrev").addEventListener("click", () => goToStop(S.stopIdx - 1, !S.playing));
   $("#tStop").addEventListener("click", () => { stopPlayback(); renderSide(); });
 
-  // ---- free flight (Sky-Tour style) -----------------------------------------
-  const F = {cruise:220, speed:0, lat:0, lon:0, z:0, heading:0, tilt:80, keys:new Set(), raf:0, last:0};
-  const MIN_AGL = 120;
-  function groundZ(lon, lat){
-    try {
-      const s = view.groundView?.elevationSampler;
-      if (s){ const p = s.queryElevation(new Point({longitude:lon, latitude:lat, spatialReference:{wkid:4326}})); if (p && p.z != null) return p.z; }
-    } catch(e){}
-    return 0;
-  }
-  function startFlight(){
-    stopOrbit(); stopPlayback(true);
-    const c = view.camera;
-    F.lat = c.position.latitude; F.lon = c.position.longitude; F.z = c.position.z;
-    F.heading = c.heading; F.tilt = Math.max(60, Math.min(95, c.tilt)); F.speed = F.cruise * .5; F.keys.clear();
-    if (F.z > 60000){ F.z = 12000; }                       // came from space: drop to a sensible altitude
-    F.z = Math.max(F.z, groundZ(F.lon, F.lat) + 600);
-    S.flying = true; $("#hud").classList.add("show"); $("#crosshair").classList.add("show");
-    $("#card").classList.remove("show"); hl?.remove();
-    view.container.focus?.();
-    toast("Flying. W/S pitch · A/D turn · ↑/↓ climb · Shift turbo · Space brake · Esc to stop", 4500);
-    F.last = performance.now(); F.raf = requestAnimationFrame(flightStep);
-  }
-  function stopFlight(rerender=true){
-    if (!S.flying) return;
-    S.flying = false; cancelAnimationFrame(F.raf);
-    $("#hud").classList.remove("show"); $("#crosshair").classList.remove("show");
-  }
-  function flightStep(now){
-    if (!S.flying) return;
-    const dt = Math.min((now - F.last) / 1000, .1); F.last = now;
-    const k = F.keys;
-    const target = k.has("Space") ? 0 : F.cruise * (k.has("ShiftLeft")||k.has("ShiftRight") ? 3.2 : 1);
-    F.speed += (target - F.speed) * Math.min(dt * 1.6, 1);
-    const turn = 38 * dt * (0.6 + 0.4 * Math.min(F.speed / F.cruise, 1));
-    if (k.has("KeyA")||k.has("ArrowLeft"))  F.heading -= turn;
-    if (k.has("KeyD")||k.has("ArrowRight")) F.heading += turn;
-    if (k.has("KeyW")) F.tilt = Math.min(F.tilt + 28*dt, 112);   // nose down (tilt > 90 looks down)
-    if (k.has("KeyS")) F.tilt = Math.max(F.tilt - 28*dt, 45);    // nose up
-    let climb = 0;
-    if (k.has("ArrowUp")||k.has("KeyE")) climb += 1;
-    if (k.has("ArrowDown")||k.has("KeyQ")) climb -= 1;
-    F.heading = (F.heading + 360) % 360;
-    // forward motion along heading; the pitch converts part of the speed to vertical motion
-    const pitch = (90 - F.tilt) * d2r;                            // + = nose up
-    const horiz = F.speed * Math.cos(pitch) * dt;
-    const vert  = F.speed * Math.sin(pitch) * dt + climb * F.speed * .6 * dt;
-    const p = destination(F.lat, F.lon, F.heading, horiz);
-    F.lat = p.lat; F.lon = p.lon; F.z += vert;
-    const g = groundZ(F.lon, F.lat);
-    if (F.z < g + MIN_AGL){ F.z = g + MIN_AGL; if (F.tilt > 92) F.tilt -= 20*dt; }
-    view.camera = new Camera({position:new Point({longitude:F.lon, latitude:F.lat, z:F.z, spatialReference:{wkid:4326}}), heading:F.heading, tilt:F.tilt});
-    $("#hudSpd").textContent = Math.round(F.speed * 3.6); $("#hudAlt").textContent = Math.round(F.z).toLocaleString();
-    $("#hudAgl").textContent = Math.round(F.z - g).toLocaleString(); $("#hudHdg").textContent = String(Math.round(F.heading) % 360).padStart(3,"0");
-    if ((now|0) % 20 === 0){ const nv = nearestVolcano(); if (nv) $("#hudNear").textContent = `${nv.name} ${(haversine(F.lat,F.lon,nv.lat,nv.lon)/1000).toFixed(0)} km`; }
-    F.raf = requestAnimationFrame(flightStep);
-  }
-  function nearestVolcano(){
-    const c = view.camera.position; let best = null, bd = Infinity;
-    for (const v of V){ const d = haversine(c.latitude, c.longitude, v.lat, v.lon); if (d < bd){ bd = d; best = v; } }
-    return best;
-  }
-  const FLIGHT_KEYS = new Set(["KeyW","KeyA","KeyS","KeyD","KeyQ","KeyE","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","ShiftLeft","ShiftRight"]);
-  window.addEventListener("keydown", e => {
-    if (e.target.matches("input,textarea")) return;
-    if (e.code === "Escape"){ stopFlight(); if (S.orbiting) stopOrbit(); return; }
-    if (!S.flying) return;
-    if (e.code === "Equal" || e.code === "NumpadAdd"){ F.cruise = Math.min(F.cruise*1.25, 1500); toast(`Cruise ${Math.round(F.cruise*3.6)} km/h`, 900); }
-    if (e.code === "Minus" || e.code === "NumpadSubtract"){ F.cruise = Math.max(F.cruise/1.25, 30); toast(`Cruise ${Math.round(F.cruise*3.6)} km/h`, 900); }
-    if (FLIGHT_KEYS.has(e.code)){ F.keys.add(e.code); e.preventDefault(); }
-  }, true);
-  window.addEventListener("keyup", e => F.keys.delete(e.code), true);
-  window.addEventListener("blur", () => F.keys.clear());
-  // keep the SDK's own keyboard navigation out of the way while flying
-  view.on("key-down", e => { if (S.flying) e.stopPropagation(); });
-  view.on("key-up",   e => { if (S.flying) e.stopPropagation(); });
-  // any mouse drag ends orbit / flight so the user regains control
+  window.addEventListener("keydown", e => { if (e.code === "Escape" && S.orbiting) stopOrbit(); });
+  // any mouse drag ends orbit so the user regains control
   view.on("drag", e => { if (e.action === "start"){ if (S.orbiting) stopOrbit(); if (S.playing){ S.playing = false; $("#tPlay").textContent = "▶"; } } });
 
   // ---- clicks on the globe --------------------------------------------------
   view.on("click", e => {
     view.hitTest(e, {include:[volcLayer]}).then(r => {
       const g = r.results.find(x => x.graphic?.layer === volcLayer)?.graphic;
-      if (g){ stopPlayback(); flyToVolcano(BYN[g.attributes.vn]); return; }
-      if (e.native?.ctrlKey && e.mapPoint){
-        stopOrbit(); stopPlayback();
-        const z = (e.mapPoint.z || 0) + 2500;
-        view.goTo({position:{longitude:e.mapPoint.longitude, latitude:e.mapPoint.latitude, z, spatialReference:{wkid:4326}}, heading:view.camera.heading, tilt:78},
-                  {speedFactor:.8, maxDuration:6000}).then(() => startFlight()).catch(()=>{});
-      }
+      if (g){ stopPlayback(); flyToVolcano(BYN[g.attributes.vn]); }
     });
   });
   view.on("pointer-move", e => {
