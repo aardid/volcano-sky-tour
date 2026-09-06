@@ -122,6 +122,9 @@
   #legend{position:absolute;right:12px;top:56px;z-index:15;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11.5px;min-width:200px}
   #legend h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
   #legend .stat{border:0;padding:2px 0}
+  header .powered{color:var(--muted);font-size:11px;white-space:nowrap;border-left:1px solid var(--line);padding-left:12px}
+  header .powered b{color:var(--ink);font-weight:600}
+  body.focus #legend, body.focus #scopeBtn{display:none}   /* #vn=N&tour: single-volcano view */
   @media (max-width:900px){
     #side{width:min(340px,calc(100vw - 24px))}
     #card{width:min(360px,calc(100vw - 24px))}
@@ -142,6 +145,7 @@
 <header>
   <h1><span>▲</span> Volcano Sky Tour</h1>
   <span class="sub" id="hsub">Fly the world's 1,215 Holocene volcanoes in 3D</span>
+  <span class="powered">Powered by <b>Cloudbreak Analytics</b></span>
   <nav class="tabs">
     <button data-tab="tours" class="active">Tours</button>
     <button data-tab="explore">Explore</button>
@@ -452,7 +456,7 @@ require([
       <h2>Data &amp; credits</h2>
       <p class="note">Volcanoes, eruptions, photos and summaries: Global Volcanism Program, Smithsonian Institution, <a href="https://volcano.si.edu" target="_blank">volcano.si.edu</a> (Venzke, E., ed.; Andrews et al. 2025, <i>Bull. Volcanol.</i> 87:34). Population within 5–100 km: LandScan via the GVP exposure service. ${META.n_eruptions.toLocaleString()} confirmed eruptions.<br><br>
       Globe: ArcGIS Maps SDK for JavaScript; World Imagery and World Elevation 3D (Esri, Maxar, Airbus, USGS, NASA and others); 3D buildings © OpenStreetMap contributors via Esri Living Atlas.<br><br>
-      Concept inspired by <a href="https://ceddc.ch/arcgisworldskytour/" target="_blank">World Sky Tour</a> by Cédric Despierre Corporon. Built at the University of Canterbury for teaching.</p>`;
+      Concept inspired by <a href="https://ceddc.ch/arcgisworldskytour/" target="_blank">World Sky Tour</a> by Cédric Despierre Corporon. Built at the University of Canterbury for teaching. Powered by <b>Cloudbreak Analytics</b>.</p>`;
   }
 
   // ---- legend ------------------------------------------------------------
@@ -584,6 +588,24 @@ require([
       startOrbit(v, defaultView(v, st), () => { if (S.playing) goToStop(S.stopIdx + 1); });
     }
   }
+  // #vn=N&tour deep link (from the BK 2D explorer): a view that is all about
+  // volcano N. Hide the legend and the side panel, fly in using the teaching
+  // note and camera framing of its tour stop (if any tour includes it), then
+  // orbit until the user drags the globe or presses Stop orbit. No playback to
+  // other volcanoes; the header tabs still open the panels on demand.
+  function startTourAt(v){
+    let stop = null;
+    for (const tr of window.TOURS){ stop = tr.stops.find(st => st.n === v.n); if (stop) break; }
+    document.body.classList.add("focus");
+    side.classList.add("collapsed");
+    $("#hsub").textContent = `${v.name} · ${v.type} · ${v.cty} · Smithsonian GVP #${v.n}`;
+    flyToVolcano(v, stop).then(arrived => {
+      if (!arrived) return;
+      const geom = defaultView(v, stop);
+      const loop = () => startOrbit(v, geom, loop);
+      loop();
+    });
+  }
   function startPlayback(){ S.playing = true; $("#tPlay").textContent = "⏸"; goToStop(S.stopIdx < 0 ? 0 : S.stopIdx); }
   function stopPlayback(hide=true){ S.playing = false; stopOrbit(); $("#tPlay").textContent = "▶"; if (hide){ $("#transport").classList.remove("show"); S.stopIdx = -1; } }
   $("#tPlay").addEventListener("click", () => S.playing ? (S.playing=false, stopOrbit(), $("#tPlay").textContent="▶") : startPlayback());
@@ -624,7 +646,8 @@ require([
       setTimeout(() => $("#loader").classList.add("hide"), 300);
       const m = location.hash.match(/vn=(\d+)/);
       const v0 = m ? BYN[+m[1]] : null;
-      if (v0) flyToVolcano(v0);
+      if (v0 && /[#&]tour(?:[=&]|$)/.test(location.hash)) startTourAt(v0);   // #vn=N&tour (from the BK 2D explorer)
+      else if (v0) flyToVolcano(v0);
       else {
         // gentle intro: settle over the North Island
         view.goTo(focusView(), {speedFactor:.4, maxDuration:7000}).catch(()=>{});

@@ -28,7 +28,11 @@ of the public repo https://github.com/aardid/volcano-sky-tour. Every push to
   overrides (`dist`, `alt`, `bearing`, `tilt`, `orbit`). Curator-editable.
 - `build_data.py` → `data/volcanoes.js` (`window.VOLC`, ~2 MB) from the BK repo
   CSVs (`../000_papers_abs_ppts/BK_paper_2026`). Re-run after `build_catalogue.py`.
-- `README.md` — user-facing docs, URL options (`#vn=`, `?q=low|high`, `?instant`).
+- `README.md` — user-facing docs, URL options (`#vn=`, `#vn=N&tour`, `?q=low|high`, `?instant`).
+  `#vn=N&tour` (`startTourAt`, `body.focus`) is the deep link used by the BK
+  `webapp/index.html` popup button "Take a 3D tour" (opens this app in a new tab):
+  legend + side panel hidden, no tour playback, the tab is about that one volcano
+  (Alberto, 2026-09-06). Tabs in the header still reopen the panel.
 
 ## Conventions
 - REF_YEAR 2026; thresholds erupting 0.252 yr / high 500 / moderate 12,000 /

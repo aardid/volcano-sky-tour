@@ -31,6 +31,7 @@ URL options:
 | option | effect |
 | --- | --- |
 | `#vn=241100` | open on a volcano (GVP number); the Share button makes these links |
+| `#vn=241100&tour` | single-volcano view: legend and side panel hidden, fly in with the volcano's tour note and framing, orbit until you drag; used by the BK 2D explorer's *Take a 3D tour* button |
 | `?q=low` / `?q=high` | rendering quality profile (default medium) |
 | `?instant` | jump to volcanoes instead of animating the fly-in |
 
@@ -71,6 +72,7 @@ Global Volcanism Program, Smithsonian Institution (volcano.si.edu; Venzke ed.;
 Andrews et al. 2025 *Bull. Volcanol.* 87:34). Population: LandScan via the GVP
 exposure service. GeoNet / GNS Science. Esri ArcGIS Maps SDK for JavaScript,
 World Imagery, World Elevation 3D; © OpenStreetMap contributors.
+Powered by **Cloudbreak Analytics**.
 
 ## Ideas not built yet
 
